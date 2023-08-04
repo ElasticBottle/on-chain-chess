@@ -37,25 +37,12 @@ export const ChessBoardBlockChain = ({
   const [optionSquares, setOptionSquares] = useState<SquareMapping>({});
 
   const apiContext = api.useContext();
-  const { mutateAsync } = api.web3api.writeChessContract.useMutation({
-    onSuccess: (txnId) => {
-      pollForTransactionStatus({
-        apiContext,
-        txnId,
-        onSuccess() {
-          console.log("success");
-        },
-        onError(e) {
-          console.log("error moving piece", e);
-        },
-      });
-    },
-  });
+  const { mutateAsync } = api.web3api.writeChessContract.useMutation({});
   const movePiece = async (from: Square, to: Square) => {
     const { x: fromX, y: fromY } = convertChessPositionToTuple(from);
     const { x: toX, y: toY } = convertChessPositionToTuple(to);
 
-    await mutateAsync({
+    const txnId = await mutateAsync({
       function_name: "movePiece",
       args: [
         roomId,
@@ -64,6 +51,16 @@ export const ChessBoardBlockChain = ({
         toX.toString(),
         toY.toString(),
       ],
+    });
+    pollForTransactionStatus({
+      apiContext,
+      txnId,
+      onSuccess() {
+        console.log("success");
+      },
+      onError(e) {
+        throw e;
+      },
     });
   };
 
@@ -180,7 +177,7 @@ export const ChessBoardBlockChain = ({
         await movePiece(moveFrom, square);
       } catch (e) {
         // this will happen if we could not make the move on chain
-        console.error(e);
+        console.error("Error moving piece", e);
         game.move({
           from: square ?? "",
           to: moveFrom ?? "",
