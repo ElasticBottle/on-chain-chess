@@ -3,12 +3,12 @@ pragma solidity ^0.8.0;
 
 import "@thirdweb-dev/contracts/base/ERC1155LazyMint.sol";
 import "./ChessTypes.sol";
-import "./ChessMoveValidator.sol";
 
 contract Chess is ERC1155LazyMint {
     mapping(uint256 => ChessTypes.Room) public rooms;
     mapping(address => uint256) public playerToActiveRoom;
     mapping(address => uint256[]) public playerPastRooms;
+    mapping(uint256 => uint8[2][2]) public roomLastMove;
     uint256 public totalRooms = 0;
     uint8 constant boardSize = 8;
 
@@ -65,13 +65,13 @@ contract Chess is ERC1155LazyMint {
             "Invalid move: Same source and destination"
         );
         require(
-            rooms[totalRooms].board[fromX][fromY].pieceColor !=
+            rooms[totalRooms].board[fromY][fromX].pieceColor !=
                 ChessTypes.PieceColor.None,
             "Invalid move: Empty source cell"
         );
         require(
-            rooms[totalRooms].board[fromX][fromY].pieceColor !=
-                rooms[totalRooms].board[toX][toY].pieceColor,
+            rooms[totalRooms].board[fromY][fromX].pieceColor !=
+                rooms[totalRooms].board[toY][toX].pieceColor,
             "Invalid move: Can't capture own piece"
         );
         _;
@@ -108,6 +108,10 @@ contract Chess is ERC1155LazyMint {
         rooms[totalRooms].player1 = player;
         rooms[totalRooms].player1Color = ChessTypes.PieceColor.White;
         playerToActiveRoom[player] = totalRooms;
+        roomLastMove[totalRooms] = [
+            [uint8(255), uint8(255)],
+            [uint8(255), uint8(255)]
+        ];
         initializeBoard(totalRooms);
     }
 
@@ -269,102 +273,41 @@ contract Chess is ERC1155LazyMint {
         playerPastRooms[player2].push(roomId);
     }
 
-    function isValidPieceMove(
-        uint8 fromX,
-        uint8 fromY,
-        uint8 toX,
-        uint8 toY,
-        ChessTypes.PieceType pieceType,
-        ChessTypes.PieceColor pieceColor
-    ) internal pure returns (bool) {
-        if (pieceType == ChessTypes.PieceType.Pawn) {
-            bool isFirstMove = false;
-            if (pieceColor == ChessTypes.PieceColor.White) {
-                isFirstMove = fromY == 1;
-            } else if (pieceColor == ChessTypes.PieceColor.Black) {
-                isFirstMove = fromY == 6;
+    function getBoardState(
+        uint256 roomId
+    ) public view returns (ChessTypes.Piece[64] memory) {
+        ChessTypes.Piece[64] memory flatBoard;
+        for (uint256 i = 0; i < 8; ++i) {
+            for (uint256 j = 0; j < 8; ++j) {
+                flatBoard[(i * 8) + j] = rooms[roomId].board[i][j];
             }
-            // To consider capturing diagonally, en passant, and pawn promotion
-            ChessMoveValidator.isValidMoveForPawn(
-                fromX,
-                fromY,
-                toX,
-                toY,
-                pieceColor,
-                isFirstMove
-            );
-        } else if (pieceType == ChessTypes.PieceType.Rook) {
-            ChessMoveValidator.isValidMoveForRook(fromX, fromY, toX, toY);
-        } else if (pieceType == ChessTypes.PieceType.Knight) {
-            ChessMoveValidator.isValidMoveForKnight(fromX, fromY, toX, toY);
-        } else if (pieceType == ChessTypes.PieceType.Bishop) {
-            ChessMoveValidator.isValidMoveForBishop(fromX, fromY, toX, toY);
-        } else if (pieceType == ChessTypes.PieceType.Queen) {
-            ChessMoveValidator.isValidMoveForQueen(fromX, fromY, toX, toY);
-        } else if (pieceType == ChessTypes.PieceType.King) {
-            bool isFirstMove = false;
-            if (pieceColor == ChessTypes.PieceColor.White) {
-                isFirstMove = fromY == 0 && fromX == 4;
-            } else if (pieceColor == ChessTypes.PieceColor.Black) {
-                isFirstMove = fromY == 7 && fromX == 4;
-            }
-            ChessMoveValidator.isValidMoveForKing(
-                fromX,
-                fromY,
-                toX,
-                toY,
-                isFirstMove
-            );
         }
-
-        // If none of the valid moves match, it's an invalid move
-        return false;
+        return flatBoard;
     }
 
-    function makeMove(
+    function getLastMove(
+        uint256 roomId
+    ) public view returns (uint8[2][2] memory) {
+        return roomLastMove[roomId];
+    }
+
+    function movePiece(
         uint256 roomId,
         uint8 fromX,
         uint8 fromY,
         uint8 toX,
         uint8 toY
-    )
-        external
-        activeRoom(roomId)
-        onlyAllowedCaller(roomId)
-        isValidMove(fromX, fromY, toX, toY)
-    {
-        // TODO: fix player1 can move player2 pieces
+    ) external activeRoom(roomId) onlyAllowedCaller(roomId) {
+        roomLastMove[roomId] = [[fromX, fromY], [toX, toY]];
+    }
 
-        ChessTypes.Piece storage sourcePiece = rooms[roomId].board[fromX][
-            fromY
-        ];
-        ChessTypes.Piece storage targetPiece = rooms[roomId].board[toX][toY];
-
-        // Check for valid piece movement (you need to implement this according to chess rules)
-        require(
-            isValidPieceMove(
-                fromX,
-                fromY,
-                toX,
-                toY,
-                sourcePiece.pieceType,
-                sourcePiece.pieceColor
-            ),
-            "Invalid move: Invalid piece movement"
-        );
-
-        // Perform the move
-        rooms[roomId].board[toX][toY] = sourcePiece;
-        rooms[roomId].board[fromX][fromY] = ChessTypes.Piece(
-            ChessTypes.PieceType.Empty,
-            ChessTypes.PieceColor.None
-        );
-
-        if (targetPiece.pieceType == ChessTypes.PieceType.King) {
-            // Game over, update the winner
-            rooms[roomId].isActive = false;
-            rooms[roomId].winner = msg.sender;
-        }
+    function declareWinner(
+        uint256 roomId,
+        address winner
+    ) external activeRoom(roomId) onlyAllowedCaller(roomId) {
+        rooms[roomId].isActive = false;
+        rooms[roomId].winner = winner;
+        claim(rooms[roomId].winner, 0, 1);
     }
 
     function gradeBoard(uint256 roomId) external activeRoom(roomId) {

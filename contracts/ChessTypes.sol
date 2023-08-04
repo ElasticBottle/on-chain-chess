@@ -7,7 +7,7 @@ library ChessTypes {
         PieceColor player1Color;
         address player2;
         PieceColor player2Color;
-        mapping(uint8 => mapping(uint8 => Piece)) board;
+        Piece[8][8] board;
         bool isActive;
         address winner;
     }
