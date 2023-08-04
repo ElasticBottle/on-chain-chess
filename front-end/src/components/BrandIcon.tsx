@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { useColorModeValue } from "@chakra-ui/react";
 import Image from "next/image";
 
