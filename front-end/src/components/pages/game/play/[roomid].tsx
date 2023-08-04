@@ -93,9 +93,12 @@ export const ChessGamePage = () => {
   }, [roomId, address]);
 
   useEffect(() => {
-    if (winner === address) {
+    if (winner === undefined) {
+      return;
+    }
+    if (winner === address && !!address) {
       alert("You won!");
-    } else if (winner === opponentAddress) {
+    } else if (winner === opponentAddress && !!opponentAddress) {
       alert("You lost!");
     }
   }, [winner, address, opponentAddress]);

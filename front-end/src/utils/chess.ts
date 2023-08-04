@@ -1,4 +1,4 @@
-import { Square } from "chess.js";
+import { type Square } from "chess.js";
 
 export function convertChessPositionToTuple(position: Square) {
   const x = position[0];
@@ -12,14 +12,14 @@ export function convertTupleToChessPosition(position: {
   const x = position.x;
   const y = position.y;
   const mapping = {
-    0: 'h',
-    1: 'g',
-    2: 'f',
-    3:'e',
-    4:'d',
-    5:'c',
-    6:'b',
-    7:'a'
-  }
-  return `${mapping[x]}${y + 1}`;
+    0: "h",
+    1: "g",
+    2: "f",
+    3: "e",
+    4: "d",
+    5: "c",
+    6: "b",
+    7: "a",
+  };
+  return `${mapping[x as unknown as keyof typeof mapping]}${y + 1}`;
 }
