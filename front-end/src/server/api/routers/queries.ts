@@ -1,18 +1,12 @@
 import { z } from "zod";
 import { env } from "~/env.mjs";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-
-const WEB3_API_URL = "http://localhost:3005";
-// const WEB3_API_URL =
-//   "https://web3-api-akbv-winston-listen-to-r-85359b.chainsaw-dev.zeet.app";
-
-const CHESS_GAME_CONTRACT_ADDRESS =
-  "0x6Beb0d58431FA24b745F7Dbc17D0345b2E23E4bC";
-const CHESS_GAME_NETWORK = "mumbai";
-
-const responseSchema = z.object({
-  result: z.union([z.any().array(), z.object({}).passthrough(), z.string()]),
-});
+import {
+  CHESS_GAME_CONTRACT_ADDRESS,
+  CHESS_GAME_NETWORK,
+  WEB3_API_URL,
+  responseSchema,
+} from "~/utils/web3Api";
 
 export const web3ApiRouter = createTRPCRouter({
   readChessContract: publicProcedure
@@ -66,6 +60,7 @@ export const web3ApiRouter = createTRPCRouter({
         `${WEB3_API_URL}/contract/${CHESS_GAME_NETWORK}/${CHESS_GAME_CONTRACT_ADDRESS}/write`
       );
 
+      console.log("input", input);
       const resp = await fetch(url.href, {
         headers: {
           Authorization: "Bearer " + env.THIRDWEB_SDK_SECRET_KEY,

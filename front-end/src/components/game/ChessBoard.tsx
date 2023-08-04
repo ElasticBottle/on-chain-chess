@@ -1,23 +1,88 @@
 import { Flex } from "@chakra-ui/react";
 import { Chess, type Square } from "chess.js";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Chessboard } from "react-chessboard";
-import { type PromotionPieceOption } from "react-chessboard/dist/chessboard/types";
+import { api } from "~/utils/api";
+import { PieceColor, pollForTransactionStatus } from "~/utils/web3Api";
+import { convertChessPositionToTuple } from "../../utils/chess";
 
 type SquareMapping = Partial<
   Record<Square, { background: string; borderRadius?: string }>
 >;
-export const ChessBoardBlockChain = () => {
+export const ChessBoardBlockChain = ({
+  roomId,
+  currentTurn,
+  setCurrentTurn,
+  playerColor,
+  opponentColor,
+  opponentMove,
+}: {
+  roomId: string;
+  currentTurn: number;
+  setCurrentTurn: React.Dispatch<React.SetStateAction<number>>;
+  playerColor: number;
+  opponentColor: number;
+  opponentMove: { from: string; to: string } | undefined;
+}) => {
   const [game, setGame] = useState(new Chess());
   const [moveFrom, setMoveFrom] = useState<Square | undefined>(undefined);
   const [moveTo, setMoveTo] = useState<Square | undefined>(undefined);
-  const [showPromotionDialog, setShowPromotionDialog] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<SquareMapping>(
     {}
   );
   const [optionSquares, setOptionSquares] = useState<SquareMapping>({});
 
+  const apiContext = api.useContext();
+  const { mutateAsync } = api.web3api.writeChessContract.useMutation({
+    onSuccess: (txnId) => {
+      pollForTransactionStatus({
+        apiContext,
+        txnId,
+        onSuccess() {
+          console.log("success");
+        },
+        onError(e) {
+          console.log("error moving piece", e);
+        },
+      });
+    },
+  });
+  const movePiece = async (from: Square, to: Square) => {
+    const { x: fromX, y: fromY } = convertChessPositionToTuple(from);
+    const { x: toX, y: toY } = convertChessPositionToTuple(to);
+
+    await mutateAsync({
+      function_name: "movePiece",
+      args: [
+        roomId,
+        fromX.toString(),
+        fromY.toString(),
+        toX.toString(),
+        toY.toString(),
+      ],
+    });
+  };
+
+  useEffect(() => {
+    if (opponentMove?.from && opponentMove?.to) {
+      try {
+        game.move({
+          from: opponentMove?.from,
+          to: opponentMove?.to,
+          promotion: "q",
+        });
+        setCurrentTurn(playerColor);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, [opponentMove?.from, opponentMove?.to]);
+
   function getMoveOptions(square: Square) {
+    if (playerColor === PieceColor.None || playerColor !== currentTurn) {
+      return false;
+    }
+
     const moves = game.moves({
       square,
       verbose: true,
@@ -47,19 +112,7 @@ export const ChessBoardBlockChain = () => {
     return true;
   }
 
-  function makeRandomMove() {
-    const possibleMoves = game.moves();
-
-    // exit if the game is over
-    if (game.isGameOver() || game.isDraw() || possibleMoves.length === 0)
-      return;
-
-    const randomIndex = Math.floor(Math.random() * possibleMoves.length);
-    game.move(possibleMoves[randomIndex] ?? "");
-    setGame(new Chess(game.fen()));
-  }
-
-  function onSquareClick(square: Square) {
+  async function onSquareClick(square: Square) {
     setRightClickedSquares({});
 
     // from square
@@ -91,19 +144,6 @@ export const ChessBoardBlockChain = () => {
       // valid move
       setMoveTo(square);
 
-      // if promotion move
-      if (
-        (foundMove.color === "w" &&
-          foundMove.piece === "p" &&
-          square[1] === "1") ||
-        (foundMove.color === "b" &&
-          foundMove.piece === "p" &&
-          square[1] === "8")
-      ) {
-        setShowPromotionDialog(true);
-        return;
-      }
-
       // is normal move
       try {
         game.move({
@@ -111,40 +151,24 @@ export const ChessBoardBlockChain = () => {
           to: square,
           promotion: "q",
         });
+        setCurrentTurn(opponentColor);
+        await movePiece(moveFrom, square);
       } catch (e) {
-        // this should not happen since we validate the move earlier
+        // this will happen if we could not make the move on chain
         console.error(e);
+        game.move({
+          from: square ?? "",
+          to: moveFrom ?? "",
+          promotion: "q",
+        });
+        setCurrentTurn(playerColor);
         return;
       }
-
-      setTimeout(makeRandomMove, 300);
       setMoveFrom(undefined);
       setMoveTo(undefined);
       setOptionSquares({});
       return;
     }
-  }
-
-  function onPromotionPieceSelect(piece?: PromotionPieceOption) {
-    // if no piece passed then user has cancelled dialog, don't make move and reset
-    if (!moveFrom || !moveTo || !piece) {
-      console.warn("No piece selected for promotion");
-      return false;
-    }
-    if (piece) {
-      game.move({
-        from: moveFrom,
-        to: moveTo,
-        promotion: piece[1]?.toLowerCase() ?? "q",
-      });
-      setTimeout(makeRandomMove, 300);
-    }
-
-    setMoveFrom(undefined);
-    setMoveTo(undefined);
-    setShowPromotionDialog(false);
-    setOptionSquares({});
-    return true;
   }
 
   function onSquareRightClick(square: Square) {
@@ -167,7 +191,7 @@ export const ChessBoardBlockChain = () => {
         position={game.fen()}
         onSquareClick={onSquareClick}
         onSquareRightClick={onSquareRightClick}
-        onPromotionPieceSelect={onPromotionPieceSelect}
+        autoPromoteToQueen={true}
         customBoardStyle={{
           borderRadius: "4px",
           boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
@@ -176,8 +200,6 @@ export const ChessBoardBlockChain = () => {
           ...optionSquares,
           ...rightClickedSquares,
         }}
-        promotionToSquare={moveTo}
-        showPromotionDialog={showPromotionDialog}
         boardOrientation="black"
         boardWidth={800}
       />
