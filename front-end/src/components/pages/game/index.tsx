@@ -1,6 +1,7 @@
 import {
   Button,
   Center,
+  Divider,
   Flex,
   Heading,
   Spinner,
@@ -17,25 +18,38 @@ import { pollForTransactionStatus } from "~/utils/web3Api";
 
 export const ChessGameListPage = () => {
   const address = useAddress();
-
   const router = useRouter();
+  const apiContext = api.useContext();
 
   const {
-    data,
-    isInitialLoading: isLoading,
-    error,
+    data: availableRooms,
+    isInitialLoading: isLoadingAvailableRooms,
+    error: errorGettingAvailableRooms,
   } = api.web3api.readChessContract.useQuery({
     args: "1,1000",
     functionName: "getAvailableRooms",
   });
 
-  const apiContext = api.useContext();
+  const {
+    data: playerRoom,
+    isInitialLoading: isLoadingPlayerRoom,
+    error: errorGettingPlayerRoom,
+  } = api.web3api.readChessContract.useQuery(
+    {
+      args: address,
+      functionName: "playerToActiveRoom",
+    },
+    {
+      enabled: !!address,
+    }
+  );
 
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isJoiningGame, setIsJoiningGame] = useState(false);
   const { mutate } = api.web3api.writeChessContract.useMutation({
     onSuccess: (txnId) => {
       console.log("txnId", txnId);
       pollForTransactionStatus({
+        apiContext,
         txnId,
         async onSuccess() {
           const roomId = await apiContext.web3api.readChessContract.fetch({
@@ -46,28 +60,45 @@ export const ChessGameListPage = () => {
           router.push(`/game/play/${parsedRoomId}`).catch((e) => {
             console.error("ERROR navigating to game", e);
           });
-          setIsCreatingRoom(false);
+          setIsJoiningGame(false);
         },
         onError() {
-          setIsCreatingRoom(false);
-
-        }
+          setIsJoiningGame(false);
+        },
       });
-
     },
   });
   const createRoom = () => {
-    setIsCreatingRoom(true);
+    setIsJoiningGame(true);
     mutate({
       function_name: "createRoom",
       args: [address ?? "0x"],
     });
   };
+  const joinRoom = (roomId: string) => () => {
+    setIsJoiningGame(true);
+    mutate({
+      function_name: "joinRoom",
+      args: [roomId, address ?? "0x"],
+    });
+  };
 
-  if (error) {
-    console.error(error);
+  const resumeGame = () => {
+    setIsJoiningGame(true);
+    router.push(`/game/play/${playerRoom}`).catch((e) => {
+      console.error("ERROR navigating to game", e);
+    });
+  };
+
+  if (errorGettingAvailableRooms || errorGettingPlayerRoom) {
+    console.error("errorGettingAvailableRooms", errorGettingAvailableRooms);
+    console.error("errorGettingPlayerRoom", errorGettingPlayerRoom);
   }
-  const parsedData = z.coerce.string().array().optional().safeParse(data);
+  const parsedData = z.coerce
+    .string()
+    .array()
+    .optional()
+    .safeParse(availableRooms);
   if (!parsedData.success) {
     return <Text>Something went wrong</Text>;
   }
@@ -77,7 +108,7 @@ export const ChessGameListPage = () => {
       <Spinner />
     </Center>
   );
-  if (!isLoading) {
+  if (!isLoadingAvailableRooms) {
     ChessGameList = (
       <Stack>
         {parsedData.data?.length ? (
@@ -85,7 +116,14 @@ export const ChessGameListPage = () => {
             return (
               <Flex key={roomId} justifyContent={"space-between"}>
                 <Text>Room {roomId}</Text>
-                <Button>Join Room</Button>
+                <Button
+                  variant="ghost"
+                  onClick={joinRoom(roomId)}
+                  isLoading={isJoiningGame}
+                  isDisabled={!address || playerRoom !== "0"}
+                >
+                  Join Room
+                </Button>
               </Flex>
             );
           })
@@ -98,13 +136,30 @@ export const ChessGameListPage = () => {
 
   return (
     <AuthGate>
-      <Stack flexGrow={1} m={10} spacing={7} w="md">
+      <Stack flexGrow={1} m={10} spacing={7} w="full" maxW="lg" px={4}>
+        {!isLoadingPlayerRoom &&
+          typeof playerRoom === "string" &&
+          playerRoom !== "0" && (
+            <>
+              <Flex
+                justifyContent={"space-between"}
+                alignItems={"center"}
+                w="full"
+              >
+                <Text fontSize={"xl"}>In Game: Room {playerRoom}</Text>
+                <Button variant="solid" onClick={resumeGame}>
+                  Resume Game
+                </Button>
+              </Flex>
+              <Divider />
+            </>
+          )}
         <Flex w="full" justifyContent={"space-between"} alignItems={"center"}>
           <Heading fontSize={"lg"}>Online Rooms</Heading>
           <Button
             onClick={createRoom}
-            isDisabled={!address}
-            isLoading={isCreatingRoom}
+            isDisabled={!address || playerRoom !== "0"}
+            isLoading={isJoiningGame}
           >
             Create Room
           </Button>

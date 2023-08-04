@@ -12,10 +12,13 @@ export const ChessGamePage = () => {
     push,
   } = useRouter();
 
+  const apiContext = api.useContext();
+
   const [isClosingRoom, setIsClosingRoom] = useState(false);
   const { mutate: closeRoom } = api.web3api.writeChessContract.useMutation({
     onSuccess: (data) => {
       pollForTransactionStatus({
+        apiContext,
         txnId: data,
         onSuccess() {
           push("/game").catch((e) => {

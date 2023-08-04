@@ -15,7 +15,6 @@ export const ChessBoardBlockChain = () => {
   const [rightClickedSquares, setRightClickedSquares] = useState<SquareMapping>(
     {}
   );
-  const [moveSquares, setMoveSquares] = useState({});
   const [optionSquares, setOptionSquares] = useState<SquareMapping>({});
 
   function getMoveOptions(square: Square) {
@@ -174,7 +173,6 @@ export const ChessBoardBlockChain = () => {
           boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
         }}
         customSquareStyles={{
-          ...moveSquares,
           ...optionSquares,
           ...rightClickedSquares,
         }}

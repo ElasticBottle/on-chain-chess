@@ -1,16 +1,16 @@
-import console from "console";
-import { api } from "./api";
+import { type api } from "./api";
 
 export function pollForTransactionStatus({
   txnId,
   onError,
   onSuccess,
+  apiContext,
 }: {
   txnId: string;
   onSuccess: () => void | Promise<void>;
   onError: (e: unknown) => void;
+  apiContext: ReturnType<(typeof api)["useContext"]>;
 }) {
-  const apiContext = api.useContext();
   const interval = setInterval(() => {
     apiContext.web3api.getTransactionStatus
       .fetch({

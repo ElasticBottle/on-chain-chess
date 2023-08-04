@@ -11,7 +11,7 @@ const CHESS_GAME_CONTRACT_ADDRESS =
 const CHESS_GAME_NETWORK = "mumbai";
 
 const responseSchema = z.object({
-  result: z.union([z.string(), z.object({}).passthrough(), z.string().array()]),
+  result: z.union([z.any().array(), z.object({}).passthrough(), z.string()]),
 });
 
 export const web3ApiRouter = createTRPCRouter({
