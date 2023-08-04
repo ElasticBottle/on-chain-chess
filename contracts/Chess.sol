@@ -106,6 +106,7 @@ contract Chess is ERC1155LazyMint {
         ++totalRooms;
         rooms[totalRooms].isActive = true;
         rooms[totalRooms].player1 = player;
+        rooms[totalRooms].player1Color = ChessTypes.PieceColor.White;
         playerToActiveRoom[player] = totalRooms;
         initializeBoard(totalRooms);
     }
@@ -253,6 +254,7 @@ contract Chess is ERC1155LazyMint {
         require(player != rooms[roomId].player1, "Player already in room");
         playerToActiveRoom[player] = roomId;
         rooms[roomId].player2 = player;
+        rooms[roomId].player2Color = ChessTypes.PieceColor.Black;
     }
 
     function closeRoom(
