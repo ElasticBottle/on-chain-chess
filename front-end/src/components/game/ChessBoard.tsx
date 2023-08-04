@@ -16,12 +16,16 @@ export const ChessBoardBlockChain = ({
   playerColor,
   opponentColor,
   opponentMove,
+  opponentAddress,
+  playerAddress,
 }: {
   roomId: string;
   currentTurn: number;
   setCurrentTurn: React.Dispatch<React.SetStateAction<number>>;
   playerColor: number;
+  playerAddress?: string;
   opponentColor: number;
+  opponentAddress?: string;
   opponentMove: { from: string; to: string } | undefined;
 }) => {
   const [game, setGame] = useState(new Chess());
@@ -64,6 +68,27 @@ export const ChessBoardBlockChain = ({
   };
 
   useEffect(() => {
+    if (game.isGameOver() && playerAddress && opponentAddress) {
+      const winner =
+        currentTurn === playerColor ? opponentAddress : playerAddress;
+      mutateAsync({
+        function_name: "declareWinner",
+        args: [roomId, winner],
+      }).catch((e) => {
+        console.error("ERROR declaring winner", e);
+      });
+    }
+  }, [
+    currentTurn,
+    game,
+    mutateAsync,
+    opponentAddress,
+    playerAddress,
+    playerColor,
+    roomId,
+  ]);
+
+  useEffect(() => {
     if (opponentMove?.from && opponentMove?.to) {
       try {
         game.move({
@@ -76,7 +101,7 @@ export const ChessBoardBlockChain = ({
         console.error(e);
       }
     }
-  }, [opponentMove?.from, opponentMove?.to]);
+  }, [game, opponentMove?.from, opponentMove?.to, playerColor, setCurrentTurn]);
 
   function getMoveOptions(square: Square) {
     if (playerColor === PieceColor.None || playerColor !== currentTurn) {

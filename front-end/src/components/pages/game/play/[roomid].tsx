@@ -92,6 +92,14 @@ export const ChessGamePage = () => {
     };
   }, [roomId, address]);
 
+  useEffect(() => {
+    if (winner === address) {
+      alert("You won!");
+    } else if (winner === opponentAddress) {
+      alert("You lost!");
+    }
+  }, [winner, address, opponentAddress]);
+
   const apiContext = api.useContext();
   api.web3api.readChessContract.useQuery(
     {
@@ -164,6 +172,8 @@ export const ChessGamePage = () => {
         <ChessBoardBlockChain
           opponentMove={opponentMove}
           opponentColor={opponentColor}
+          opponentAddress={opponentAddress}
+          playerAddress={address}
           roomId={roomId}
           currentTurn={currentTurn}
           setCurrentTurn={setCurrentTurn}

@@ -30,7 +30,7 @@ export function pollForTransactionStatus({
           e
         );
       });
-  }, 10_000);
+  }, 7_000);
 }
 
 export function subscribeToFunction({
@@ -72,9 +72,9 @@ export const responseSchema = z.object({
   result: z.union([z.any().array(), z.object({}).passthrough(), z.string()]),
 });
 
-export const WEB3_API_URL = "http://localhost:3005";
-// export const WEB3_API_URL =
-//   "https://web3-api-akbv-winston-listen-to-r-85359b.chainsaw-dev.zeet.app";
+// export const WEB3_API_URL = "http://localhost:3005";
+export const WEB3_API_URL =
+  "https://web3-api-akbv-winston-listen-to-r-85359b.chainsaw-dev.zeet.app";
 
 export const CHESS_GAME_CONTRACT_ADDRESS =
   "0x0870a21a264D607e038865eF0756Eb4BCc9F29Dd";

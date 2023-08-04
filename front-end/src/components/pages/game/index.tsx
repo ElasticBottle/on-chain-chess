@@ -85,11 +85,15 @@ export const ChessGameListPage = () => {
 
   const resumeGame = () => {
     setIsJoiningGame(true);
+    if (typeof playerRoom !== "string") {
+      return;
+    }
     router.push(`/game/play/${playerRoom}`).catch((e) => {
       console.error("ERROR navigating to game", e);
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   if (errorGettingAvailableRooms || errorGettingPlayerRoom) {
     console.error("errorGettingAvailableRooms", errorGettingAvailableRooms);
     console.error("errorGettingPlayerRoom", errorGettingPlayerRoom);
