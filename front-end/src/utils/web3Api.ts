@@ -21,6 +21,9 @@ export function pollForTransactionStatus({
         if (status === "submitted") {
           clearInterval(interval);
           await onSuccess();
+        } else if (status === "errored") {
+          clearInterval(interval);
+          onError("Transaction error");
         }
       })
       .catch((e) => {
