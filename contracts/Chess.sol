@@ -7,7 +7,8 @@ import "./ChessMoveValidator.sol";
 
 contract Chess is ERC1155LazyMint {
     mapping(uint256 => ChessTypes.Room) public rooms;
-    mapping(address => uint256) public playerToRoom;
+    mapping(address => uint256) public playerToActiveRoom;
+    mapping(address => uint256[]) public playerPastRooms;
     uint256 public totalRooms = 0;
     uint8 constant boardSize = 8;
 
@@ -76,12 +77,36 @@ contract Chess is ERC1155LazyMint {
         _;
     }
 
+    function getAvailableRooms(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory) {
+        require(offset >= 0, "Invalid offset");
+        require(limit > 0, "Invalid limit");
+
+        uint256 count = 0;
+        uint256[] memory availableRooms = new uint256[](limit);
+
+        for (uint256 i = offset; i < offset + limit; ++i) {
+            if (rooms[i].isActive && rooms[i].player2 == address(0)) {
+                availableRooms[count] = i;
+                ++count;
+            }
+        }
+
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; ++i) {
+            result[i] = availableRooms[i];
+        }
+        return result;
+    }
+
     function createRoom(address player) external {
-        require(playerToRoom[player] == 0, "Already in a room");
+        require(playerToActiveRoom[player] == 0, "Already in a room");
         ++totalRooms;
         rooms[totalRooms].isActive = true;
         rooms[totalRooms].player1 = player;
-        playerToRoom[player] = totalRooms;
+        playerToActiveRoom[player] = totalRooms;
         initializeBoard(totalRooms);
     }
 
@@ -219,30 +244,6 @@ contract Chess is ERC1155LazyMint {
         );
     }
 
-    function listAvailableRooms(
-        uint256 offset,
-        uint256 limit
-    ) external view returns (uint256[] memory) {
-        require(offset >= 0, "Invalid offset");
-        require(limit > 0, "Invalid limit");
-
-        uint256 count = 0;
-        uint256[] memory availableRooms = new uint256[](limit);
-
-        for (uint256 i = offset; i < offset + limit; ++i) {
-            if (rooms[i].isActive && rooms[i].player2 == address(0)) {
-                availableRooms[count] = i;
-                ++count;
-            }
-        }
-
-        uint256[] memory result = new uint256[](count);
-        for (uint256 i = 0; i < count; ++i) {
-            result[i] = availableRooms[i];
-        }
-        return result;
-    }
-
     function joinRoom(
         uint256 roomId,
         address player
@@ -250,6 +251,7 @@ contract Chess is ERC1155LazyMint {
         require(roomId > 0 && roomId <= totalRooms, "Invalid room ID");
         require(rooms[roomId].player2 == address(0), "Room is already full");
         require(player != rooms[roomId].player1, "Player already in room");
+        playerToActiveRoom[player] = roomId;
         rooms[roomId].player2 = player;
     }
 
@@ -257,8 +259,12 @@ contract Chess is ERC1155LazyMint {
         uint256 roomId
     ) external activeRoom(roomId) onlyAllowedCaller(roomId) {
         rooms[roomId].isActive = false;
-        playerToRoom[rooms[roomId].player1] = 0;
-        playerToRoom[rooms[roomId].player2] = 0;
+        address player1 = rooms[roomId].player1;
+        address player2 = rooms[roomId].player2;
+        playerToActiveRoom[player1] = 0;
+        playerToActiveRoom[player2] = 0;
+        playerPastRooms[player1].push(roomId);
+        playerPastRooms[player2].push(roomId);
     }
 
     function isValidPieceMove(

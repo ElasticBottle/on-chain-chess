@@ -10,7 +10,9 @@ import { Analytics } from "@vercel/analytics/react";
 import type { AppType } from "next/app";
 import { Montserrat, Poppins } from "next/font/google";
 import { Layout } from "~/components/Layout";
-import "../styles/globals.css";
+import { env } from "~/env.mjs";
+import "~/styles/globals.css";
+import { api } from "~/utils/api";
 
 const montserrat = Montserrat({ subsets: ["latin-ext"], display: "swap" });
 const poppins = Poppins({
@@ -181,18 +183,14 @@ const MyApp: AppType<Record<string, unknown>> = ({
   Component,
   pageProps: { ...pageProps },
 }) => {
-  console.log(
-    "process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID",
-    process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID
-  );
   return (
     <ThirdwebProvider
       // Required configuration for the provider, but doesn't affect Auth.
       activeChain="polygon"
-      clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID}
+      clientId={env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID}
       authConfig={{
         // Set this to your domain to prevent phishing attacks
-        domain: process.env.NEXT_PUBLIC_THIRDWEB_AUTH_DOMAIN || "",
+        domain: env.NEXT_PUBLIC_THIRDWEB_AUTH_DOMAIN,
         // The URL of your Auth API
         authUrl: "/api/auth",
       }}
@@ -217,4 +215,4 @@ const MyApp: AppType<Record<string, unknown>> = ({
   );
 };
 
-export default MyApp;
+export default api.withTRPC(MyApp);
